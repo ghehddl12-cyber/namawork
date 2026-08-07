@@ -8,6 +8,7 @@ import authRoute from './routes/auth'
 import userJobsRoute from './routes/user-jobs'
 import employerRoute from './routes/employer'
 import aggregateRoute from './routes/aggregate'
+import spotsRoute from './routes/spots'
 
 type Bindings = {
   DB: D1Database
@@ -27,6 +28,7 @@ app.route('/api/auth', authRoute)
 app.route('/api/user', userJobsRoute)
 app.route('/api/employer', employerRoute)
 app.route('/api/aggregate', aggregateRoute)
+app.route('/api/spots', spotsRoute)
 
 // 헬스체크
 app.get('/api/health', (c) => c.json({ status: 'ok', service: 'NomaWork API' }))
@@ -85,6 +87,7 @@ function getIndexHTML(): string {
   <script src="/static/employer-ui.js"></script>
   <script src="/static/source-ui.js"></script>
   <script src="/static/eligibility-ui.js"></script>
+  <script src="/static/spots-ui.js"></script>
 </body>
 </html>`
 }

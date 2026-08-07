@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { hasResidencyRequirement } from '../lib/eligibility'
 
 type Bindings = { DB: D1Database; SYNC_KEY?: string }
 const app = new Hono<{ Bindings: Bindings }>()
@@ -126,15 +127,16 @@ async function saveJobs(db: D1Database, list: Norm[]): Promise<{ added: number; 
       await db.prepare(
         `INSERT INTO jobs (company_id, title, slug, category, description, requirements,
            remote_type, contract_type, experience_level, salary_min, salary_max, salary_currency, salary_period,
-           required_timezone, skills_required, is_active, source, source_url, external_id)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)`
+           required_timezone, skills_required, is_active, source, source_url, external_id, residency_blocked)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?)`
       ).bind(
         companyId, n.title, slugify(n.title, n.source + '-' + n.external_id), n.category,
         n.description || n.title, '원문 공고를 확인해주세요.',
         r.remote_type, 'full_time', 'any',
         n.salary_min, n.salary_max, 'USD', 'yearly',
         r.required_timezone, JSON.stringify(n.skills),
-        n.source, n.url, n.external_id
+        n.source, n.url, n.external_id,
+        hasResidencyRequirement(n.location + ' ' + n.description) ? 1 : 0
       ).run()
       added++
     } catch { skipped++ }

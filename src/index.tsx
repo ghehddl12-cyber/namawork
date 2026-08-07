@@ -84,6 +84,7 @@ function getIndexHTML(): string {
   <script src="/static/auth-ui.js"></script>
   <script src="/static/employer-ui.js"></script>
   <script src="/static/source-ui.js"></script>
+  <script src="/static/eligibility-ui.js"></script>
 </body>
 </html>`
 }

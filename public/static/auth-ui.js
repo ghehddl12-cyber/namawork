@@ -1,7 +1,8 @@
 // ===== NomaWork 인증 UI (독립 모듈) =====
-// app.js를 수정하지 않고 로그인/회원가입 기능을 얹기 위한 모듈.
-// - 상단 네비게이션에 로그인/회원가입 (또는 사용자+로그아웃) 버튼 주입
-// - 로그인/회원가입은 모달로 처리 (앱 라우터에 의존하지 않음)
+// app.js를 수정하지 않고 로그인/회원가입 기능과 공고 저장/지원 기능을 얹기 위한 모듈.
+// - 상단 네비게이션에 로그인/회원가입 (또는 사용자+보관함+로그아웃) 버튼 주입
+// - 로그인/회원가입/보관함은 모달로 처리 (앱 라우터에 의존하지 않음)
+// - 상세페이지의 저장/지원 버튼에 동작 연결 (app.js 미수정)
 // - 토큰은 localStorage에 저장하여 새로고침 후에도 로그인 유지
 (function () {
   const API = '/api'
@@ -34,7 +35,7 @@
       const res = await axios.get(`${API}/auth/me`)
       setUser(res.data.user)
     } catch { clearToken() }
-    injectNav()
+    injectNav(); enhanceDetail(true)
   }
 
   // ---- 네비게이션 버튼 주입 ----
@@ -55,9 +56,12 @@
         '<div class="hidden sm:flex items-center gap-2 text-sm text-gray-700">' +
         '<div class="w-7 h-7 hero-gradient rounded-full flex items-center justify-center text-white text-xs font-bold">' + initial + '</div>' +
         '<span class="font-medium max-w-[120px] truncate">' + label + '</span></div>' +
+        '<button id="auth-library-btn" class="text-gray-600 hover:text-nomad-600 text-sm font-medium px-2 py-2 transition-colors">' +
+        '<i class="fas fa-bookmark sm:mr-1"></i><span class="hidden sm:inline">보관함</span></button>' +
         '<button id="auth-logout-btn" class="text-gray-500 hover:text-nomad-600 text-sm font-medium px-2 py-2 transition-colors">' +
         '<i class="fas fa-sign-out-alt sm:mr-1"></i><span class="hidden sm:inline">로그아웃</span></button>'
-      el.querySelector('#auth-logout-btn').onclick = () => { clearToken(); injectNav() }
+      el.querySelector('#auth-library-btn').onclick = () => openLibrary('saved')
+      el.querySelector('#auth-logout-btn').onclick = () => { clearToken(); injectNav(); enhanceDetail(true) }
     } else {
       el.innerHTML =
         '<button id="auth-login-btn" class="text-gray-600 hover:text-nomad-600 text-sm font-medium px-2 py-2 transition-colors">로그인</button>' +
@@ -137,7 +141,7 @@
     try {
       const res = await axios.post(`${API}/auth/login`, { email, password })
       saveToken(res.data.token); setUser(res.data.user)
-      closeModal(); injectNav()
+      closeModal(); injectNav(); enhanceDetail(true)
     } catch (e) {
       showErr((e.response && e.response.data && e.response.data.error) || '로그인에 실패했습니다.')
       btn.disabled = false; btn.textContent = '로그인'
@@ -158,10 +162,155 @@
     try {
       const res = await axios.post(`${API}/auth/signup`, { email, password, name, current_timezone: tz })
       saveToken(res.data.token); setUser(res.data.user)
-      closeModal(); injectNav()
+      closeModal(); injectNav(); enhanceDetail(true)
     } catch (e) {
       showErr((e.response && e.response.data && e.response.data.error) || '회원가입에 실패했습니다.')
       btn.disabled = false; btn.textContent = '회원가입'
+    }
+  }
+
+  // ===== 공고 저장 / 지원 =====
+  async function apiStatus(jobId) {
+    try { const r = await axios.get(`${API}/user/status/${jobId}`); return r.data }
+    catch { return { saved: false, applied: false } }
+  }
+
+  function setSaveBtn(btn, saved) {
+    btn.dataset.saved = saved ? '1' : '0'
+    btn.innerHTML = '<i class="fas fa-bookmark mr-2"></i>' + (saved ? '저장됨' : '저장하기')
+    btn.classList.toggle('text-nomad-600', saved)
+    btn.classList.toggle('border-nomad-400', saved)
+  }
+  function setApplyBtn(btn, applied) {
+    btn.dataset.applied = applied ? '1' : '0'
+    if (applied) {
+      btn.innerHTML = '<i class="fas fa-check mr-2"></i>지원 완료'
+      btn.disabled = true
+      btn.classList.add('opacity-70')
+    } else {
+      btn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>지원하기'
+      btn.disabled = false
+      btn.classList.remove('opacity-70')
+    }
+  }
+
+  // 상세페이지의 저장/지원 버튼에 동작 연결 (app.js를 수정하지 않고 주입)
+  let enhancedJobId = null
+  function enhanceDetail(force) {
+    const onDetail = window.state && window.state.page === 'job-detail' && window.state.selectedJob
+    if (!onDetail) { enhancedJobId = null; return }
+    const job = window.state.selectedJob
+    if (!force && enhancedJobId === job.id) return
+    let applyBtn = null, saveBtn = null
+    const scope = document.getElementById('main-content') || document.getElementById('app')
+    scope.querySelectorAll('button').forEach(function (b) {
+      if (b.innerHTML.indexOf('fa-paper-plane') >= 0 || b.dataset.applied != null) applyBtn = applyBtn || b
+      else if (b.innerHTML.indexOf('fa-bookmark') >= 0 || b.dataset.saved != null) saveBtn = saveBtn || b
+    })
+    if (!applyBtn && !saveBtn) return
+    enhancedJobId = job.id
+
+    if (saveBtn) {
+      saveBtn.onclick = async function () {
+        if (!auth.user) return openModal('login')
+        const saved = saveBtn.dataset.saved === '1'
+        try {
+          if (saved) { await axios.delete(`${API}/user/saved/${job.id}`); setSaveBtn(saveBtn, false) }
+          else { await axios.post(`${API}/user/saved/${job.id}`); setSaveBtn(saveBtn, true) }
+        } catch { /* 무시 */ }
+      }
+    }
+    if (applyBtn) {
+      applyBtn.onclick = async function () {
+        if (!auth.user) return openModal('login')
+        if (applyBtn.dataset.applied === '1') return
+        applyBtn.disabled = true
+        try {
+          await axios.post(`${API}/user/applications/${job.id}`, {})
+          setApplyBtn(applyBtn, true)
+        } catch (e) {
+          if (e.response && e.response.status === 409) setApplyBtn(applyBtn, true)
+          else applyBtn.disabled = false
+        }
+      }
+    }
+
+    if (auth.user) {
+      apiStatus(job.id).then(function (s) {
+        if (saveBtn) setSaveBtn(saveBtn, s.saved)
+        if (applyBtn) setApplyBtn(applyBtn, s.applied)
+      })
+    } else {
+      if (saveBtn) setSaveBtn(saveBtn, false)
+      if (applyBtn) setApplyBtn(applyBtn, false)
+    }
+  }
+
+  // ---- 보관함 모달 (저장/지원 목록) ----
+  function fmtSalary(j) {
+    if (!j.salary_min && !j.salary_max) return '협의'
+    const k = (n) => n >= 1000 ? '$' + Math.round(n / 1000) + 'K' : '$' + n
+    const period = j.salary_period === 'hourly' ? '/hr' : j.salary_period === 'monthly' ? '/월' : '/년'
+    if (j.salary_min && j.salary_max) return k(j.salary_min) + '-' + k(j.salary_max) + period
+    return k(j.salary_min || j.salary_max) + period
+  }
+  function libCard(j, tab) {
+    const statusMap = { submitted: '제출됨', reviewing: '검토 중', accepted: '합격', rejected: '불합격', withdrawn: '철회' }
+    const badge = tab === 'applied'
+      ? '<span class="text-xs bg-nomad-50 text-nomad-700 px-2 py-0.5 rounded-full">' + (statusMap[j.application_status] || '제출됨') + '</span>'
+      : ''
+    const initial = (j.company_name || '?').charAt(0).toUpperCase()
+    return '<div data-slug="' + j.slug + '" class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 cursor-pointer border border-gray-100 mb-2">' +
+      '<div class="w-10 h-10 rounded-lg hero-gradient flex items-center justify-center text-white font-bold flex-shrink-0">' + initial + '</div>' +
+      '<div class="flex-1 min-w-0"><div class="font-medium text-gray-800 text-sm truncate">' + j.title + '</div>' +
+      '<div class="text-xs text-gray-500 truncate">' + (j.company_name || '') + (j.headquarters_country ? (' · ' + j.headquarters_country) : '') + '</div></div>' +
+      '<div class="text-right flex-shrink-0">' + badge +
+      '<div class="text-xs text-nomad-600 font-medium mt-0.5">' + fmtSalary(j) + '</div></div></div>'
+  }
+  function openLibrary(tab) {
+    closeModal()
+    modalEl = document.createElement('div')
+    modalEl.className = 'fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40'
+    modalEl.onclick = (e) => { if (e.target === modalEl) closeModal() }
+    modalEl.innerHTML =
+      '<div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">' +
+        '<div class="flex items-center justify-between p-5 border-b border-gray-100">' +
+          '<h2 class="text-lg font-bold text-gray-900">내 보관함</h2>' +
+          '<button id="lib-close" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button></div>' +
+        '<div class="flex border-b border-gray-100 px-5">' +
+          '<button id="lib-tab-saved" class="px-4 py-3 text-sm font-medium border-b-2">저장한 공고</button>' +
+          '<button id="lib-tab-applied" class="px-4 py-3 text-sm font-medium border-b-2">지원 내역</button></div>' +
+        '<div id="lib-body" class="p-5 overflow-y-auto"></div></div>'
+    document.body.appendChild(modalEl)
+    document.getElementById('lib-close').onclick = closeModal
+    document.getElementById('lib-tab-saved').onclick = () => showLibTab('saved')
+    document.getElementById('lib-tab-applied').onclick = () => showLibTab('applied')
+    showLibTab(tab || 'saved')
+  }
+  async function showLibTab(tab) {
+    const body = document.getElementById('lib-body')
+    const ts = document.getElementById('lib-tab-saved'), ta = document.getElementById('lib-tab-applied')
+    const active = 'text-nomad-600 border-nomad-500', idle = 'text-gray-500 border-transparent'
+    ts.className = 'px-4 py-3 text-sm font-medium border-b-2 ' + (tab === 'saved' ? active : idle)
+    ta.className = 'px-4 py-3 text-sm font-medium border-b-2 ' + (tab === 'applied' ? active : idle)
+    body.innerHTML = '<div class="flex justify-center py-10"><div class="spinner"></div></div>'
+    try {
+      const res = await axios.get(`${API}/user/` + (tab === 'saved' ? 'saved' : 'applications'))
+      const jobs = res.data.jobs || []
+      if (!jobs.length) {
+        body.innerHTML = '<div class="text-center text-gray-400 py-10 text-sm">' + (tab === 'saved' ? '저장한 공고가 없습니다.' : '지원한 공고가 없습니다.') + '</div>'
+        return
+      }
+      body.innerHTML = jobs.map((j) => libCard(j, tab)).join('')
+      body.querySelectorAll('[data-slug]').forEach(function (el) {
+        el.addEventListener('click', function () {
+          const slug = el.dataset.slug
+          closeModal()
+          if (window.loadJobDetail) window.loadJobDetail(slug)
+        })
+      })
+    } catch {
+      body.innerHTML = '<div class="text-center text-red-400 py-10 text-sm">불러오기에 실패했습니다.</div>'
     }
   }
 
@@ -171,6 +320,7 @@
     if (!appRoot) { setTimeout(startObserver, 300); return }
     const obs = new MutationObserver(function () {
       if (!document.getElementById('auth-nav-control')) injectNav()
+      enhanceDetail(false)
     })
     obs.observe(appRoot, { childList: true, subtree: true })
     injectNav()

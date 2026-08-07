@@ -22,6 +22,35 @@ const EXCHANGE_RATES: Record<string, number> = {
   GEL: 2.71
 }
 
+// ===== 실시간 환율 =====
+// 외부 무료 API(open.er-api.com)에서 USD 기준 환율을 가져오고, 1시간 캐시.
+// 실패하면 위 고정값(FALLBACK)으로 자동 대체하여 항상 동작하도록 함.
+const FALLBACK_RATES: Record<string, number> = { ...EXCHANGE_RATES }
+const RATES_TTL = 1000 * 60 * 60 // 1시간
+let ratesCache: { at: number; rates: Record<string, number>; live: boolean } = { at: 0, rates: FALLBACK_RATES, live: false }
+
+async function getRates(): Promise<{ rates: Record<string, number>; live: boolean; updated_at: number }> {
+  const now = Date.now()
+  if (ratesCache.live && now - ratesCache.at < RATES_TTL) {
+    return { rates: ratesCache.rates, live: true, updated_at: ratesCache.at }
+  }
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/USD')
+    const data: any = await res.json()
+    if (data && data.result === 'success' && data.rates) {
+      // 우리가 쓰는 통화만 실시간값으로 덮어쓰고, 없는 건 고정값 유지
+      const merged: Record<string, number> = { ...FALLBACK_RATES }
+      for (const k of Object.keys(FALLBACK_RATES)) {
+        if (typeof data.rates[k] === 'number') merged[k] = data.rates[k]
+      }
+      ratesCache = { at: now, rates: merged, live: true }
+      return { rates: merged, live: true, updated_at: now }
+    }
+  } catch { /* 네트워크/파싱 실패 → 폴백 */ }
+  // 실패: 만료된 캐시라도 있으면 그걸, 없으면 고정값
+  return { rates: ratesCache.rates || FALLBACK_RATES, live: ratesCache.live, updated_at: ratesCache.at }
+}
+
 // 생활비 지수 (뉴욕=100 기준, 편안한 생활 월 예산 USD)
 const CITY_COST_INDEX: Record<string, { index: number, monthly_budget: number }> = {
   'New York': { index: 100, monthly_budget: 4500 },
@@ -54,17 +83,20 @@ const CITY_COST_INDEX: Record<string, { index: number, monthly_budget: number }>
 app.post('/calculate', async (c) => {
   const { salary, currency = 'USD', period = 'yearly', city, target_currency = 'USD' } = await c.req.json()
 
+  // 실시간 환율 (실패 시 고정값)
+  const { rates, live: rates_live, updated_at: rates_updated_at } = await getRates()
+
   // 연봉 기준으로 환산
   let annualSalaryUSD = salary
   if (period === 'monthly') annualSalaryUSD = salary * 12
   if (period === 'hourly') annualSalaryUSD = salary * 40 * 52 // 주 40시간
 
   // 원화 환산
-  const rate = EXCHANGE_RATES[currency] || 1
-  const annualSalaryOriginal = annualSalaryUSD / (EXCHANGE_RATES[currency] || 1)
+  const rate = rates[currency] || 1
+  const annualSalaryOriginal = annualSalaryUSD / (rates[currency] || 1)
 
   // 타겟 통화로 환산
-  const targetRate = EXCHANGE_RATES[target_currency] || 1
+  const targetRate = rates[target_currency] || 1
   const annualTargetCurrency = (annualSalaryUSD / rate) * targetRate
 
   // 도시 생활비 기반 실질 구매력
@@ -104,7 +136,9 @@ app.post('/calculate', async (c) => {
     monthly_living_budget_usd: monthly_budget,
     estimated_savings_ratio: savingsRatio ? Math.round(savingsRatio * 100) : null,
     estimated_tax_rate: Math.round(estimatedTaxRate * 100),
-    exchange_rates: EXCHANGE_RATES
+    exchange_rates: rates,
+    rates_live,
+    rates_updated_at
   })
 })
 
@@ -118,9 +152,10 @@ app.get('/cities', (c) => {
   return c.json(cities)
 })
 
-// 환율 정보
-app.get('/rates', (c) => {
-  return c.json(EXCHANGE_RATES)
+// 환율 정보 (실시간, 실패 시 고정값)
+app.get('/rates', async (c) => {
+  const { rates, live, updated_at } = await getRates()
+  return c.json({ rates, live, updated_at })
 })
 
 export default app

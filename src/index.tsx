@@ -6,6 +6,7 @@ import companiesRoute from './routes/companies'
 import salaryRoute from './routes/salary'
 import authRoute from './routes/auth'
 import userJobsRoute from './routes/user-jobs'
+import employerRoute from './routes/employer'
 
 type Bindings = {
   DB: D1Database
@@ -23,6 +24,7 @@ app.route('/api/companies', companiesRoute)
 app.route('/api/salary', salaryRoute)
 app.route('/api/auth', authRoute)
 app.route('/api/user', userJobsRoute)
+app.route('/api/employer', employerRoute)
 
 // 헬스체크
 app.get('/api/health', (c) => c.json({ status: 'ok', service: 'NomaWork API' }))
@@ -78,6 +80,7 @@ function getIndexHTML(): string {
   <div id="app"></div>
   <script src="/static/app.js"></script>
   <script src="/static/auth-ui.js"></script>
+  <script src="/static/employer-ui.js"></script>
 </body>
 </html>`
 }

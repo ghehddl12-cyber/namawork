@@ -5,6 +5,7 @@ import jobsRoute from './routes/jobs'
 import companiesRoute from './routes/companies'
 import salaryRoute from './routes/salary'
 import authRoute from './routes/auth'
+import userJobsRoute from './routes/user-jobs'
 
 type Bindings = {
   DB: D1Database
@@ -21,6 +22,7 @@ app.route('/api/jobs', jobsRoute)
 app.route('/api/companies', companiesRoute)
 app.route('/api/salary', salaryRoute)
 app.route('/api/auth', authRoute)
+app.route('/api/user', userJobsRoute)
 
 // 헬스체크
 app.get('/api/health', (c) => c.json({ status: 'ok', service: 'NomaWork API' }))

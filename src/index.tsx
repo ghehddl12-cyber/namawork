@@ -4,9 +4,11 @@ import { serveStatic } from 'hono/cloudflare-workers'
 import jobsRoute from './routes/jobs'
 import companiesRoute from './routes/companies'
 import salaryRoute from './routes/salary'
+import authRoute from './routes/auth'
 
 type Bindings = {
   DB: D1Database
+  JWT_SECRET?: string
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -18,6 +20,7 @@ app.use('/api/*', cors())
 app.route('/api/jobs', jobsRoute)
 app.route('/api/companies', companiesRoute)
 app.route('/api/salary', salaryRoute)
+app.route('/api/auth', authRoute)
 
 // 헬스체크
 app.get('/api/health', (c) => c.json({ status: 'ok', service: 'NomaWork API' }))
@@ -72,6 +75,7 @@ function getIndexHTML(): string {
 <body class="bg-gray-50 font-sans">
   <div id="app"></div>
   <script src="/static/app.js"></script>
+  <script src="/static/auth-ui.js"></script>
 </body>
 </html>`
 }

@@ -1,6 +1,6 @@
 // ===== NomaWork 인증 UI (독립 모듈) =====
 // app.js를 수정하지 않고 로그인/회원가입 기능과 공고 저장/지원 기능을 얹기 위한 모듈.
-// - 상단 네비게이션에 로그인/회원가입 (또는 사용자+보관함+로그아웃) 버튼 주입
+// - 상단 네비게이션에 로그인/회원가입 (또는 사용자+공고관리+보관함+로그아웃) 버튼 주입
 // - 로그인/회원가입/보관함은 모달로 처리 (앱 라우터에 의존하지 않음)
 // - 상세페이지의 저장/지원 버튼에 동작 연결 (app.js 미수정)
 // - 토큰은 localStorage에 저장하여 새로고침 후에도 로그인 유지
@@ -56,10 +56,13 @@
         '<div class="hidden sm:flex items-center gap-2 text-sm text-gray-700">' +
         '<div class="w-7 h-7 hero-gradient rounded-full flex items-center justify-center text-white text-xs font-bold">' + initial + '</div>' +
         '<span class="font-medium max-w-[120px] truncate">' + label + '</span></div>' +
+        '<button id="auth-employer-btn" class="text-gray-600 hover:text-nomad-600 text-sm font-medium px-2 py-2 transition-colors">' +
+        '<i class="fas fa-briefcase sm:mr-1"></i><span class="hidden sm:inline">공고 관리</span></button>' +
         '<button id="auth-library-btn" class="text-gray-600 hover:text-nomad-600 text-sm font-medium px-2 py-2 transition-colors">' +
         '<i class="fas fa-bookmark sm:mr-1"></i><span class="hidden sm:inline">보관함</span></button>' +
         '<button id="auth-logout-btn" class="text-gray-500 hover:text-nomad-600 text-sm font-medium px-2 py-2 transition-colors">' +
         '<i class="fas fa-sign-out-alt sm:mr-1"></i><span class="hidden sm:inline">로그아웃</span></button>'
+      el.querySelector('#auth-employer-btn').onclick = () => { if (window.openEmployer) window.openEmployer() }
       el.querySelector('#auth-library-btn').onclick = () => openLibrary('saved')
       el.querySelector('#auth-logout-btn').onclick = () => { clearToken(); injectNav(); enhanceDetail(true) }
     } else {

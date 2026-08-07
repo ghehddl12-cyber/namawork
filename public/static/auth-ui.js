@@ -58,11 +58,14 @@
         '<span class="font-medium max-w-[120px] truncate">' + label + '</span></div>' +
         '<button id="auth-employer-btn" class="text-gray-600 hover:text-nomad-600 text-sm font-medium px-2 py-2 transition-colors">' +
         '<i class="fas fa-briefcase sm:mr-1"></i><span class="hidden sm:inline">공고 관리</span></button>' +
+        '<button id="auth-sync-btn" class="text-gray-600 hover:text-nomad-600 text-sm font-medium px-2 py-2 transition-colors" title="공고 수집 현황">' +
+        '<i class="fas fa-rotate"></i></button>' +
         '<button id="auth-library-btn" class="text-gray-600 hover:text-nomad-600 text-sm font-medium px-2 py-2 transition-colors">' +
         '<i class="fas fa-bookmark sm:mr-1"></i><span class="hidden sm:inline">보관함</span></button>' +
         '<button id="auth-logout-btn" class="text-gray-500 hover:text-nomad-600 text-sm font-medium px-2 py-2 transition-colors">' +
         '<i class="fas fa-sign-out-alt sm:mr-1"></i><span class="hidden sm:inline">로그아웃</span></button>'
       el.querySelector('#auth-employer-btn').onclick = () => { if (window.openEmployer) window.openEmployer() }
+      el.querySelector('#auth-sync-btn').onclick = () => { if (window.openSyncPanel) window.openSyncPanel() }
       el.querySelector('#auth-library-btn').onclick = () => openLibrary('saved')
       el.querySelector('#auth-logout-btn').onclick = () => { clearToken(); injectNav(); enhanceDetail(true) }
     } else {

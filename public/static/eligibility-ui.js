@@ -217,6 +217,13 @@
     })
     obs.observe(root, { childList: true, subtree: true })
     refresh(false)
+    // 안전장치: 앱이 이미 렌더를 끝낌 뒤 모듈이 로드된 경우에도 표시되도록 잠시 확인
+    let tries = 0
+    const timer = setInterval(function () {
+      tries++
+      refresh(false)
+      if (tries > 10) clearInterval(timer)
+    }, 400)
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start)
   else start()
